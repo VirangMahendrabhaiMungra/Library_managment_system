@@ -1,0 +1,22 @@
+# Build artifacts & logs
+target/
+*.jar
+*.war
+*.ear
+*.log
+
+# Node
+node_modules/
+dist/
+frontend-dist/
+
+# Environment & secrets
+.env
+*.local
+
+# IDEs & OS
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db

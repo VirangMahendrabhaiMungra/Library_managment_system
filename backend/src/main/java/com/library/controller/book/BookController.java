@@ -1,7 +1,7 @@
 package com.library.controller.book;
 
 import com.library.entity.Book;
-import com.library.repository.BookRepository;
+import com.library.service.BookService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -12,37 +12,42 @@ import java.util.List;
 @CrossOrigin(origins = "*")
 public class BookController {
 
-    private final BookRepository bookRepository;
+    private final BookService bookService;
 
-    public BookController(BookRepository bookRepository) {
-        this.bookRepository = bookRepository;
+    public BookController(BookService bookService) {
+        this.bookService = bookService;
     }
 
     @GetMapping
     public ResponseEntity<List<Book>> getAllBooks(@RequestParam(required = false) String search) {
         if (search != null && !search.isEmpty()) {
-            return ResponseEntity.ok(bookRepository.findByTitleContainingIgnoreCase(search));
+            return ResponseEntity.ok(bookService.searchBooks(search));
         }
-        return ResponseEntity.ok(bookRepository.findAll());
+        return ResponseEntity.ok(bookService.getAllBooks());
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<Book> getBookById(@PathVariable Long id) {
+        return ResponseEntity.ok(bookService.getBookById(id));
     }
 
     @PostMapping
     public ResponseEntity<?> addBook(@RequestBody Book book) {
-        if (bookRepository.existsByIsbn(book.getIsbn())) {
-            return ResponseEntity.badRequest().body("Book with this ISBN already exists.");
+        try {
+            return ResponseEntity.ok(bookService.addBook(book));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
         }
-        if (book.getAvailableCopies() == null) {
-            book.setAvailableCopies(book.getTotalCopies());
-        }
-        return ResponseEntity.ok(bookRepository.save(book));
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteBook(@PathVariable Long id) {
-        if (!bookRepository.existsById(id)) {
+        try {
+            bookService.deleteBook(id);
+            return ResponseEntity.ok("Book deleted successfully");
+        } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
         }
-        bookRepository.deleteById(id);
-        return ResponseEntity.ok("Book deleted successfully");
     }
 }
+

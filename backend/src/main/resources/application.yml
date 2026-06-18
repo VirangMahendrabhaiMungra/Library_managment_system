@@ -3,6 +3,7 @@ spring:
     name: library-management-system
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/smart_library?useSSL=false&serverTimezone=UTC}
+    # Default credentials are for local development only. Override via environment variables in production.
     username: ${SPRING_DATASOURCE_USERNAME:root}
     password: ${SPRING_DATASOURCE_PASSWORD:root}
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -16,7 +17,8 @@ spring:
         format_sql: true
 
 jwt:
-  secret: ${JWT_SECRET:5367566B59703373367639792F423F4528482B4D6251655468576D5A71347437}
+  # IMPORTANT: Set the JWT_SECRET environment variable in production. The default is for local development only.
+  secret: ${JWT_SECRET:CHANGE_ME_generate_a_secure_base64_encoded_256bit_key}
   expiration: 86400000 # 1 day
 
 server:

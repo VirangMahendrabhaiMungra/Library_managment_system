@@ -1,16 +1,23 @@
-# Maven
+# Build artifacts
 target/
 *.jar
 *.war
 *.ear
+
+# Logs
 *.log
 
 # Node
 node_modules/
 dist/
 dist-ssr/
-*.local
+
+# Frontend build
+frontend-dist/
+
+# Environment files
 .env
+*.local
 
 # IDEs and OS Files
 .idea/
@@ -18,3 +25,10 @@ dist-ssr/
 *.iml
 *.swp
 .DS_Store
+Thumbs.db
+
+# Docker
+.docker/
+
+# Maven wrapper (optional)
+.mvn/wrapper/maven-wrapper.jar
