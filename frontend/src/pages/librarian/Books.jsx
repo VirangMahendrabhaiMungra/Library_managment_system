@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from 'react';
+import { useSelector } from 'react-redux';
 import api from '../../services/api';
-import { Search, Plus, BookOpen, Trash2 } from 'lucide-react';
+import { Search, Plus, BookOpen, Trash2, BookmarkPlus } from 'lucide-react';
 
 const Books = () => {
+    const { role } = useSelector(state => state.auth);
     const [books, setBooks] = useState([]);
     const [search, setSearch] = useState('');
     const [loading, setLoading] = useState(false);
     const [showModal, setShowModal] = useState(false);
+    const [currentPage, setCurrentPage] = useState(0);
+    const [totalPages, setTotalPages] = useState(0);
     const [newBook, setNewBook] = useState({
         title: '',
         isbn: '',
@@ -16,14 +20,15 @@ const Books = () => {
     });
 
     useEffect(() => {
-        fetchBooks();
-    }, []);
+        fetchBooks(search, currentPage);
+    }, [currentPage]);
 
-    const fetchBooks = async (searchQuery = '') => {
+    const fetchBooks = async (searchQuery = '', page = 0) => {
         setLoading(true);
         try {
-            const res = await api.get(`/books${searchQuery ? `?search=${searchQuery}` : ''}`);
-            setBooks(res.data);
+            const res = await api.get(`/books?page=${page}&size=6${searchQuery ? `&search=${searchQuery}` : ''}`);
+            setBooks(res.data.content);
+            setTotalPages(res.data.totalPages);
         } catch (err) {
             console.error("Error fetching books", err);
         } finally {
@@ -33,7 +38,8 @@ const Books = () => {
 
     const handleSearch = (e) => {
         e.preventDefault();
-        fetchBooks(search);
+        setCurrentPage(0); // Reset to first page on new search
+        fetchBooks(search, 0);
     };
 
     const handleAddBook = async (e) => {
@@ -45,7 +51,7 @@ const Books = () => {
             });
             setShowModal(false);
             setNewBook({ title: '', isbn: '', description: '', publishedYear: '', totalCopies: 1 });
-            fetchBooks();
+            fetchBooks(search, currentPage);
         } catch (err) {
             alert(err.response?.data || "Failed to add book");
         }
@@ -55,10 +61,20 @@ const Books = () => {
         if(window.confirm("Are you sure you want to delete this book?")) {
             try {
                 await api.delete(`/books/${id}`);
-                fetchBooks();
+                fetchBooks(search, currentPage);
             } catch (err) {
                 alert("Failed to delete");
             }
+        }
+    };
+
+    const handleBorrow = async (bookId) => {
+        try {
+            await api.post('/issues/borrow', { bookId });
+            alert('Book borrowed successfully!');
+            fetchBooks(); // Refresh to update available copies
+        } catch (err) {
+            alert(err.response?.data?.message || "Failed to borrow book");
         }
     };
 
@@ -72,13 +88,15 @@ const Books = () => {
                     </h2>
                     <p className="text-gray-500 text-sm mt-1">Manage and search library inventory</p>
                 </div>
-                <button 
-                    onClick={() => setShowModal(true)}
-                    className="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition"
-                >
-                    <Plus size={20} />
-                    Add New Book
-                </button>
+                {(role === 'ROLE_ADMIN' || role === 'ROLE_LIBRARIAN') && (
+                    <button 
+                        onClick={() => setShowModal(true)}
+                        className="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition"
+                    >
+                        <Plus size={20} />
+                        Add New Book
+                    </button>
+                )}
             </div>
 
             <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 flex gap-4">
@@ -104,10 +122,12 @@ const Books = () => {
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {books.map(book => (
-                        <div key={book.id} className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition group relative">
-                            <button onClick={() => handleDelete(book.id)} className="absolute top-4 right-4 text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition">
-                                <Trash2 size={20} />
-                            </button>
+                        <div key={book.id} className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition group relative flex flex-col h-full">
+                            {(role === 'ROLE_ADMIN') && (
+                                <button onClick={() => handleDelete(book.id)} className="absolute top-4 right-4 text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition">
+                                    <Trash2 size={20} />
+                                </button>
+                            )}
                             <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-2 pr-8 truncate">{book.title}</h3>
                             <p className="text-gray-500 text-sm mb-4 line-clamp-2">{book.description || "No description provided."}</p>
                             
@@ -127,6 +147,22 @@ const Books = () => {
                                     </span>
                                 </div>
                             </div>
+                            
+                            {/* Spacer to push button to bottom */}
+                            <div className="flex-grow"></div>
+                            
+                            {role === 'ROLE_STUDENT' && (
+                                <div className="mt-4 pt-4 border-t dark:border-gray-700">
+                                    <button 
+                                        onClick={() => handleBorrow(book.id)}
+                                        disabled={book.availableCopies <= 0}
+                                        className={`w-full py-2 rounded-lg flex items-center justify-center gap-2 transition ${book.availableCopies > 0 ? 'bg-primary-50 text-primary-600 hover:bg-primary-100' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
+                                    >
+                                        <BookmarkPlus size={18} />
+                                        {book.availableCopies > 0 ? 'Borrow Book' : 'Out of Stock'}
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     ))}
                     {books.length === 0 && (
@@ -134,6 +170,29 @@ const Books = () => {
                             No books found matching your criteria.
                         </div>
                     )}
+                </div>
+            )}
+
+            {/* Pagination Controls */}
+            {!loading && totalPages > 1 && (
+                <div className="flex justify-center items-center mt-8 gap-4">
+                    <button 
+                        onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
+                        disabled={currentPage === 0}
+                        className="px-4 py-2 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg disabled:opacity-50 transition"
+                    >
+                        Previous
+                    </button>
+                    <span className="text-gray-600 dark:text-gray-300">
+                        Page {currentPage + 1} of {totalPages}
+                    </span>
+                    <button 
+                        onClick={() => setCurrentPage(p => Math.min(totalPages - 1, p + 1))}
+                        disabled={currentPage === totalPages - 1}
+                        className="px-4 py-2 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg disabled:opacity-50 transition"
+                    >
+                        Next
+                    </button>
                 </div>
             )}
 

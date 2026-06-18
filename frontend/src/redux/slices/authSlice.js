@@ -6,6 +6,7 @@ export const login = createAsyncThunk('auth/login', async (credentials, { reject
         const response = await api.post('/auth/login', credentials);
         localStorage.setItem('token', response.data.token);
         localStorage.setItem('username', response.data.username);
+        localStorage.setItem('role', response.data.role);
         return response.data;
     } catch (err) {
         return rejectWithValue(err.response?.data?.message || 'Login failed');
@@ -17,6 +18,7 @@ export const register = createAsyncThunk('auth/register', async (userData, { rej
         const response = await api.post('/auth/register', userData);
         localStorage.setItem('token', response.data.token);
         localStorage.setItem('username', response.data.username);
+        localStorage.setItem('role', response.data.role);
         return response.data;
     } catch (err) {
         return rejectWithValue(err.response?.data?.message || 'Registration failed');
@@ -25,6 +27,7 @@ export const register = createAsyncThunk('auth/register', async (userData, { rej
 
 const initialState = {
     user: localStorage.getItem('username') || null,
+    role: localStorage.getItem('role') || null,
     token: localStorage.getItem('token') || null,
     loading: false,
     error: null,
@@ -37,7 +40,9 @@ const authSlice = createSlice({
         logout: (state) => {
             localStorage.removeItem('token');
             localStorage.removeItem('username');
+            localStorage.removeItem('role');
             state.user = null;
+            state.role = null;
             state.token = null;
         },
         clearError: (state) => {
@@ -55,6 +60,7 @@ const authSlice = createSlice({
                 state.loading = false;
                 state.token = action.payload.token;
                 state.user = action.payload.username;
+                state.role = action.payload.role;
             })
             .addCase(login.rejected, (state, action) => {
                 state.loading = false;
@@ -69,6 +75,7 @@ const authSlice = createSlice({
                 state.loading = false;
                 state.token = action.payload.token;
                 state.user = action.payload.username;
+                state.role = action.payload.role;
             })
             .addCase(register.rejected, (state, action) => {
                 state.loading = false;

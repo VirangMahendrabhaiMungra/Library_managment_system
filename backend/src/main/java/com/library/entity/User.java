@@ -31,8 +31,9 @@ public class User {
     @Column(nullable = false)
     private String password;
 
-    @Column(name = "role_id", nullable = false)
-    private Long roleId;
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "role_id", nullable = false)
+    private Role role;
 
     @Column(name = "is_active")
     private Boolean isActive = true;

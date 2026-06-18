@@ -5,9 +5,11 @@ import { logout } from './redux/slices/authSlice';
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 import Books from './pages/librarian/Books';
+import MyBooks from './pages/student/MyBooks';
+import MyFines from './pages/student/MyFines';
 
 function App() {
-  const { token, user } = useSelector((state) => state.auth);
+  const { token, user, role } = useSelector((state) => state.auth);
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
@@ -29,7 +31,16 @@ function App() {
                 <>
                   <li><Link to="/dashboard" className="hover:text-primary-100 transition">Dashboard</Link></li>
                   <li><Link to="/books" className="hover:text-primary-100 transition">Catalog</Link></li>
-                  <li className="text-primary-100 border-l border-primary-400 pl-6">Hello, {user}</li>
+                  {role === 'ROLE_STUDENT' && (
+                    <>
+                      <li><Link to="/my-books" className="hover:text-primary-100 transition">My Books</Link></li>
+                      <li><Link to="/my-fines" className="hover:text-primary-100 transition">My Fines</Link></li>
+                    </>
+                  )}
+                  <li className="text-primary-100 border-l border-primary-400 pl-6 flex flex-col">
+                      <span>Hello, {user}</span>
+                      <span className="text-xs opacity-75">{role === 'ROLE_ADMIN' ? 'Admin' : role === 'ROLE_LIBRARIAN' ? 'Librarian' : 'Student'}</span>
+                  </li>
                   <li>
                     <button 
                       onClick={handleLogout}
@@ -61,6 +72,8 @@ function App() {
           <Route path="/register" element={<Register />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/books" element={<Books />} />
+          <Route path="/my-books" element={<MyBooks />} />
+          <Route path="/my-fines" element={<MyFines />} />
         </Routes>
       </main>
     </div>
@@ -80,24 +93,60 @@ const Home = () => (
 );
 
 const Dashboard = () => {
-    const { user } = useSelector((state) => state.auth);
+    const { user, role } = useSelector((state) => state.auth);
+    const [stats, setStats] = React.useState({
+        totalBooks: 0,
+        borrowedBooks: 0,
+        pendingFines: 0,
+        overdueBooks: 0
+    });
+    const [loading, setLoading] = React.useState(true);
+
+    React.useEffect(() => {
+        const fetchStats = async () => {
+            try {
+                const response = await api.get('/dashboard/stats');
+                setStats(response.data);
+            } catch (err) {
+                console.error("Failed to fetch stats", err);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchStats();
+    }, []);
     
+    if (loading) return <div className="text-center mt-10">Loading dashboard...</div>;
+
     return (
       <div className="space-y-6">
         <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Welcome back, {user}!</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <div className="p-6 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 text-center hover:shadow-md transition">
                 <h3 className="text-lg font-semibold text-gray-600 dark:text-gray-400">Total Books in Catalog</h3>
-                <p className="text-4xl font-bold text-primary-600 mt-3">1,245</p>
+                <p className="text-4xl font-bold text-primary-600 mt-3">{stats.totalBooks}</p>
             </div>
-            <div className="p-6 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 text-center hover:shadow-md transition">
-                <h3 className="text-lg font-semibold text-gray-600 dark:text-gray-400">Your Borrowed Books</h3>
-                <p className="text-4xl font-bold text-green-500 mt-3">3</p>
-            </div>
-            <div className="p-6 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 text-center hover:shadow-md transition">
-                <h3 className="text-lg font-semibold text-gray-600 dark:text-gray-400">Pending Fines</h3>
-                <p className="text-4xl font-bold text-red-500 mt-3">$0.00</p>
-            </div>
+            
+            {role === 'ROLE_STUDENT' && (
+                <>
+                    <div className="p-6 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 text-center hover:shadow-md transition">
+                        <h3 className="text-lg font-semibold text-gray-600 dark:text-gray-400">Your Borrowed Books</h3>
+                        <p className="text-4xl font-bold text-green-500 mt-3">{stats.borrowedBooks}</p>
+                    </div>
+                    <div className="p-6 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 text-center hover:shadow-md transition">
+                        <h3 className="text-lg font-semibold text-gray-600 dark:text-gray-400">Overdue Books</h3>
+                        <p className={`text-4xl font-bold mt-3 ${stats.overdueBooks > 0 ? 'text-red-500' : 'text-gray-400'}`}>
+                            {stats.overdueBooks}
+                        </p>
+                    </div>
+                    <div className="p-6 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 text-center hover:shadow-md transition">
+                        <h3 className="text-lg font-semibold text-gray-600 dark:text-gray-400">Pending Fines</h3>
+                        <p className={`text-4xl font-bold mt-3 ${stats.pendingFines > 0 ? 'text-red-500' : 'text-gray-400'}`}>
+                            ${stats.pendingFines.toFixed(2)}
+                        </p>
+                    </div>
+                </>
+            )}
         </div>
       </div>
     );

@@ -14,19 +14,25 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import com.library.entity.Role;
+import com.library.repository.RoleRepository;
+import com.library.exception.ResourceNotFoundException;
+
 @Service
 public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
+    private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final AuthenticationManager authenticationManager;
     private final UserDetailsService userDetailsService;
 
-    public AuthServiceImpl(UserRepository userRepository, PasswordEncoder passwordEncoder, 
+    public AuthServiceImpl(UserRepository userRepository, RoleRepository roleRepository, PasswordEncoder passwordEncoder, 
                            JwtUtil jwtUtil, AuthenticationManager authenticationManager,
                            UserDetailsService userDetailsService) {
         this.userRepository = userRepository;
+        this.roleRepository = roleRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtUtil = jwtUtil;
         this.authenticationManager = authenticationManager;
@@ -41,10 +47,13 @@ public class AuthServiceImpl implements AuthService {
 
         UserDetails userDetails = userDetailsService.loadUserByUsername(request.getUsername());
         String jwtToken = jwtUtil.generateToken(userDetails);
+        User user = userRepository.findByUsername(request.getUsername())
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         return AuthResponse.builder()
                 .token(jwtToken)
                 .username(request.getUsername())
+                .role(user.getRole().getName())
                 .message("Successfully authenticated")
                 .build();
     }
@@ -58,11 +67,20 @@ public class AuthServiceImpl implements AuthService {
             throw new RuntimeException("Email is already taken");
         }
 
+        Role role;
+        if (request.getRoleId() != null) {
+            role = roleRepository.findById(request.getRoleId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Role not found with id: " + request.getRoleId()));
+        } else {
+            role = roleRepository.findByName("ROLE_STUDENT")
+                    .orElseThrow(() -> new ResourceNotFoundException("Default student role not found"));
+        }
+
         User user = User.builder()
                 .username(request.getUsername())
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
-                .roleId(request.getRoleId() != null ? request.getRoleId() : 3L) // Default to Student
+                .role(role)
                 .isActive(true)
                 .build();
 
@@ -74,6 +92,7 @@ public class AuthServiceImpl implements AuthService {
         return AuthResponse.builder()
                 .token(jwtToken)
                 .username(request.getUsername())
+                .role(role.getName())
                 .message("Successfully registered")
                 .build();
     }
